@@ -25,42 +25,62 @@ export type ModelInfo = {
  * exact current slug/pricing at https://openrouter.ai/models before relying on
  * one. Add/remove freely; this list is just the picker, not a hard constraint.
  */
+// Slugs + prices verified against the live OpenRouter /models list (Jun 2026).
+// Re-check at https://openrouter.ai/models — slugs drift over time.
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "google/gemini-2.0-flash-001",
-    label: "Gemini 2.0 Flash",
+    id: "google/gemini-2.5-flash-lite",
+    label: "Gemini 2.5 Flash Lite",
     vision: true,
-    note: "Recommended default — cheap, fast, native vision, generous free tier",
+    note: "Recommended default — cheapest vision ($0.10/$0.40 per M), fast",
   },
   {
-    id: "google/gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
+    id: "qwen/qwen3.6-flash",
+    label: "Qwen 3.6 Flash",
     vision: true,
-    note: "Stronger reasoning for question generation; slightly pricier",
+    note: "Fast flash model with strong reasoning ($0.19/$1.13 per M); vision+JSON",
+  },
+  {
+    id: "xiaomi/mimo-v2.5",
+    label: "Xiaomi MiMo v2.5",
+    vision: true,
+    note: "Strong quality for the price ($0.14/$0.28 per M); 1M ctx, image+JSON",
   },
   {
     id: "openai/gpt-4o-mini",
     label: "GPT-4o mini",
     vision: true,
-    note: "Best enforced JSON output; solid vision",
+    note: "Best enforced JSON output; solid vision ($0.15/$0.60 per M)",
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
+    vision: true,
+    note: "Stronger reasoning for question generation ($0.30/$2.50 per M)",
+  },
+  {
+    id: "google/gemini-3-flash-preview",
+    label: "Gemini 3 Flash (preview)",
+    vision: true,
+    note: "Newest Gemini flash; higher quality, pricier ($0.50/$3.00 per M)",
   },
   {
     id: "meta-llama/llama-3.2-11b-vision-instruct",
     label: "Llama 3.2 11B Vision",
     vision: true,
-    note: "Cheapest vision option; JSON less reliable",
+    note: "Cheap open vision option; JSON less reliable",
   },
   {
-    id: "anthropic/claude-3.5-haiku",
-    label: "Claude 3.5 Haiku",
-    vision: false,
-    note: "Text-only here — fine for generation, not for photo extraction",
+    id: "anthropic/claude-haiku-4.5",
+    label: "Claude Haiku 4.5",
+    vision: true,
+    note: "Strongest of the cheap tier; priciest here ($1/$5 per M)",
   },
 ];
 
 /** Fallback when nothing else is specified. */
 export const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.0-flash-001";
+  process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash-lite";
 
 /** Used for menu-photo OCR/extraction. Must be a vision-capable model. */
 export const VISION_MODEL =
