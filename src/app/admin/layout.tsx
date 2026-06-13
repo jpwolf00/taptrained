@@ -44,6 +44,9 @@ export default async function AdminLayout({
             <span className="text-muted hidden sm:inline">
               Invite: <span className="font-mono font-medium text-foreground">{venue?.invite_code}</span>
             </span>
+            <Link href="/admin/settings" className="text-muted hover:text-foreground transition text-xs">
+              Settings
+            </Link>
             <form action={signOut}>
               <button className="text-muted hover:text-foreground transition text-xs">
                 Sign out

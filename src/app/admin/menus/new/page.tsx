@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { MenuItem } from "@/lib/ai/types";
 
 type Step = "input" | "extracting" | "review" | "generating" | "done";
+type SavedUrl = { label: string; url: string };
 
 export default function NewMenuPage() {
   const router = useRouter();
@@ -21,6 +22,14 @@ export default function NewMenuPage() {
   const [lookingUp, setLookingUp] = useState<Set<number>>(new Set());
   const [lookupUrls, setLookupUrls] = useState<string[]>([]);
   const [lookupErrors, setLookupErrors] = useState<(string | null)[]>([]);
+  // Venue-configured URLs loaded from settings
+  const [savedUrls, setSavedUrls] = useState<SavedUrl[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => setSavedUrls(d.lookup_urls ?? []));
+  }, []);
 
   async function handleFile(file: File) {
     setError(null);
@@ -109,7 +118,23 @@ export default function NewMenuPage() {
     });
   }
 
+  /** Trigger lookup for every beer using the same URL (in parallel). */
+  async function lookupAll(url: string) {
+    const indices = items.map((_, i) => i);
+    // Set all URLs to the chosen one, then kick off all lookups
+    setLookupUrls((prev) => {
+      const next = [...prev];
+      indices.forEach((i) => { next[i] = url; });
+      return next;
+    });
+    await Promise.all(indices.map((i) => lookupBeerWithUrl(i, url)));
+  }
+
   async function lookupBeer(index: number) {
+    return lookupBeerWithUrl(index, lookupUrls[index] ?? "");
+  }
+
+  async function lookupBeerWithUrl(index: number, url: string) {
     const item = items[index];
     if (!item?.name) return;
     setLookingUp((prev) => new Set(prev).add(index));
@@ -118,10 +143,7 @@ export default function NewMenuPage() {
     const res = await fetch("/api/admin/lookup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        beerName: item.name,
-        url: lookupUrls[index] ?? "",
-      }),
+      body: JSON.stringify({ beerName: item.name, url }),
     });
     const data = await res.json();
 
@@ -279,6 +301,45 @@ export default function NewMenuPage() {
             <h2 className="font-semibold">{items.length} beers extracted</h2>
             <p className="text-xs text-muted">Edit details or look up any beer.</p>
           </div>
+
+          {/* Saved URL chips — fill all beers at once */}
+          {savedUrls.length > 0 && (
+            <div className="mb-4 rounded-xl border border-border bg-surface p-3">
+              <p className="mb-2 text-xs font-medium text-muted uppercase tracking-wide">
+                Fill all beers from saved URL
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {savedUrls.map((u) => (
+                  <button
+                    key={u.url}
+                    onClick={() => lookupAll(u.url)}
+                    disabled={lookingUp.size > 0}
+                    className="rounded-lg border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber hover:bg-amber/20 transition disabled:opacity-50"
+                  >
+                    {lookingUp.size > 0 ? `Looking up… (${lookingUp.size} left)` : `⚡ ${u.label}`}
+                  </button>
+                ))}
+                <Link
+                  href="/admin/settings"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground hover:border-amber/40 transition"
+                >
+                  + Add URL
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {savedUrls.length === 0 && (
+            <div className="mb-4 rounded-xl border border-dashed border-border p-3 text-center">
+              <p className="text-xs text-muted">
+                Save your brewery&apos;s beer page in{" "}
+                <Link href="/admin/settings" className="text-amber underline">
+                  Settings
+                </Link>{" "}
+                to fill all beers at once.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             {items.map((item, i) => {
