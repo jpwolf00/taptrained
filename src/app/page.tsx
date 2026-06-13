@@ -12,17 +12,17 @@ export default function Home() {
           <span className="text-amber">2-minute</span> staff quiz.
         </h1>
         <p className="mt-4 text-[15px] leading-relaxed text-muted">
-          Paste a menu. The AI extracts every beer and writes a short,
-          recommendation-focused quiz — so your servers know the difference
-          between a Hazy and a West Coast IPA, and which one to pour when a guest
-          says &ldquo;something not too bitter.&rdquo;
+          Paste a menu. The AI writes a short, recommendation-focused quiz so
+          your staff know the difference between a Hazy and a West Coast IPA —
+          and which one to pour when a guest says &ldquo;something not too
+          bitter.&rdquo;
         </p>
 
-        <ul className="mt-7 flex flex-col gap-3 text-sm">
+        <ul className="mt-6 flex flex-col gap-3 text-sm">
           {[
-            ["🍻", "Trains real floor skills — recommending the right beer, not trivia"],
-            ["🔄", "Flags new beers on rotating taps and quizzes staff on what's new"],
-            ["📱", "Built for a quick check before shift or during downtime"],
+            ["🍻", "Trains real floor skills — recommending beers, not trivia"],
+            ["🔄", "Flags new arrivals and quizzes staff on what's changed"],
+            ["🔥", "Daily streaks and team scoreboard keep habits alive"],
           ].map(([icon, text]) => (
             <li key={text} className="flex gap-3">
               <span aria-hidden>{icon}</span>
@@ -31,15 +31,38 @@ export default function Home() {
           ))}
         </ul>
 
-        <Link
-          href="/demo"
-          className="mt-9 rounded-xl bg-amber px-4 py-3.5 text-center font-semibold text-[#1a1209] transition hover:bg-amber-deep active:scale-[.99]"
-        >
-          Try the quiz demo →
-        </Link>
+        {/* Primary CTAs */}
+        <div className="mt-8 flex flex-col gap-3">
+          <Link
+            href="/signup/admin"
+            className="rounded-xl bg-amber px-4 py-3.5 text-center font-semibold text-[#1a1209] transition hover:bg-amber-deep active:scale-[.99]"
+          >
+            Set up your venue →
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-xl border border-border px-4 py-3.5 text-center font-semibold text-foreground transition hover:border-amber/60"
+          >
+            Sign in
+          </Link>
+        </div>
+
         <p className="mt-3 text-center text-xs text-muted">
-          No signup needed — runs on a sample tap list.
+          Have an invite code?{" "}
+          <Link href="/signup/staff" className="text-amber underline">
+            Join your team
+          </Link>
         </p>
+
+        {/* Demo as secondary option */}
+        <div className="mt-8 border-t border-border pt-6 text-center">
+          <p className="text-xs text-muted">
+            Just want to see it first?{" "}
+            <Link href="/demo" className="text-amber underline">
+              Try the demo →
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   );
