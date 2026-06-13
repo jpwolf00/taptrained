@@ -12,12 +12,20 @@ export default async function AdminDashboard() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Menus</h1>
-        <Link
-          href="/admin/menus/new"
-          className="rounded-xl bg-amber px-4 py-2.5 text-sm font-semibold text-[#1a1209] hover:bg-amber-deep transition"
-        >
-          + New menu
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/settings"
+            className="rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:border-amber/60 transition"
+          >
+            ⚙ Settings
+          </Link>
+          <Link
+            href="/admin/menus/new"
+            className="rounded-xl bg-amber px-4 py-2.5 text-sm font-semibold text-[#1a1209] hover:bg-amber-deep transition"
+          >
+            + New menu
+          </Link>
+        </div>
       </div>
 
       {!menus?.length ? (
