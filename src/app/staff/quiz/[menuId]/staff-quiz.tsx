@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -38,8 +38,6 @@ function shuffleChoices(q: RawQuestion): Question {
 
 function sampleQuiz(all: RawQuestion[], newItemIds: string[]): Question[] {
   const shuffled = shuffle(all);
-
-  // Always include questions about new items first
   const newQ = shuffled.filter(
     (q) => q.menu_item_id && newItemIds.includes(q.menu_item_id)
   );
@@ -47,9 +45,7 @@ function sampleQuiz(all: RawQuestion[], newItemIds: string[]): Question[] {
     (q) => !q.menu_item_id || !newItemIds.includes(q.menu_item_id)
   );
 
-  // Fill: new arrivals up front, then one of each category, then fill to size
   const picked: RawQuestion[] = [...newQ.slice(0, Math.min(newQ.length, 2))];
-
   for (const cat of ["scenario", "selling", "recall"] as const) {
     const q = otherQ.find((x) => x.category === cat && !picked.includes(x));
     if (q && picked.length < QUIZ_SIZE) picked.push(q);
@@ -58,7 +54,6 @@ function sampleQuiz(all: RawQuestion[], newItemIds: string[]): Question[] {
     if (picked.length >= QUIZ_SIZE) break;
     if (!picked.includes(q)) picked.push(q);
   }
-
   return shuffle(picked).slice(0, QUIZ_SIZE).map(shuffleChoices);
 }
 
@@ -86,36 +81,45 @@ export function StaffQuiz({
   const router = useRouter();
   const [quiz] = useState<Question[]>(() => sampleQuiz(questions, newItemIds));
   const [idx, setIdx] = useState(0);
+  // Track selections in a ref so final score calculation is always accurate
+  // (no async state flush issues when saving on the last question).
+  const selectionsRef = useRef<(number | null)[]>(
+    new Array(Math.min(QUIZ_SIZE, questions.length)).fill(null)
+  );
   const [selected, setSelected] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<"quiz" | "done">("quiz");
+  const [finalScore, setFinalScore] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  async function saveScore(finalScore: number) {
-    setSaving(true);
-    const supabase = createClient();
-    await supabase.from("quiz_attempts").insert({
-      venue_id: venueId,
-      menu_id: menuId,
-      profile_id: profileId,
-      mode: "quick",
-      score: finalScore,
-      total: quiz.length,
-    });
-    setSaving(false);
+  function computeScore(): number {
+    return selectionsRef.current.reduce<number>(
+      (acc, sel, i) => acc + (sel === quiz[i]?.shuffled_correct ? 1 : 0),
+      0
+    );
   }
 
   function choose(i: number) {
     if (selected !== null) return;
     setSelected(i);
-    if (i === quiz[idx].shuffled_correct) setScore((s) => s + 1);
+    selectionsRef.current[idx] = i;
   }
 
   async function next() {
-    if (idx + 1 >= quiz.length) {
-      const finalScore = score + (selected === quiz[idx].shuffled_correct ? 0 : 0);
-      // score is already updated by choose()
-      await saveScore(score + (selected === quiz[idx].shuffled_correct ? 1 : 0));
+    const isLast = idx + 1 >= quiz.length;
+    if (isLast) {
+      const score = computeScore();
+      setFinalScore(score);
+      setSaving(true);
+      const supabase = createClient();
+      await supabase.from("quiz_attempts").insert({
+        venue_id: venueId,
+        menu_id: menuId,
+        profile_id: profileId,
+        mode: "quick",
+        score,
+        total: quiz.length,
+      });
+      setSaving(false);
       setPhase("done");
     } else {
       setIdx((n) => n + 1);
@@ -124,32 +128,52 @@ export function StaffQuiz({
   }
 
   const current = quiz[idx];
+  const pct = Math.round((finalScore / quiz.length) * 100);
 
   if (phase === "done") {
-    const finalScore = score;
     return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[70vh] text-center">
-        <p className="text-sm uppercase tracking-wide text-muted">Quiz complete</p>
-        <p className="mt-2 text-5xl font-bold text-amber">
-          {finalScore}/{quiz.length}
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-2">
+        <p className="text-sm uppercase tracking-widest text-muted">Session complete</p>
+
+        {/* Score ring */}
+        <div className="relative mt-5 flex h-36 w-36 items-center justify-center">
+          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--surface-2)" strokeWidth="10" />
+            <circle
+              cx="60" cy="60" r="52" fill="none"
+              stroke="var(--amber)" strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 52}`}
+              strokeDashoffset={`${2 * Math.PI * 52 * (1 - finalScore / quiz.length)}`}
+              className="transition-all duration-700"
+            />
+          </svg>
+          <div>
+            <p className="text-3xl font-bold text-amber">{pct}%</p>
+            <p className="text-xs text-muted">{finalScore}/{quiz.length}</p>
+          </div>
+        </div>
+
+        <p className="mt-4 font-semibold">
+          {pct === 100
+            ? "Perfect pour. Floor-ready! 🍺"
+            : pct >= 83
+            ? "Strong shift. One to brush up on."
+            : pct >= 66
+            ? "Good start. Keep at it."
+            : "A few to review — you've got this."}
         </p>
         <p className="mt-1 text-sm text-muted">{menuTitle}</p>
-        <p className="mt-3 max-w-xs text-sm text-muted">
-          {finalScore === quiz.length
-            ? "Perfect pour. You're floor-ready."
-            : finalScore >= quiz.length - 1
-            ? "Strong — one to brush up on before service."
-            : "Good start — a couple more reps and you've got it."}
-        </p>
-        {saving && <p className="mt-2 text-xs text-muted">Saving score…</p>}
-        <div className="mt-8 flex w-full flex-col gap-2.5 max-w-xs">
-          <button
-            onClick={() => router.push("/staff")}
-            className="rounded-xl bg-amber px-4 py-3.5 font-semibold text-[#1a1209] hover:bg-amber-deep transition"
-          >
-            Back to scoreboard
-          </button>
-        </div>
+
+        {saving && <p className="mt-3 text-xs text-muted animate-pulse">Saving…</p>}
+
+        <button
+          onClick={() => router.push("/staff")}
+          disabled={saving}
+          className="mt-8 w-full max-w-xs rounded-xl bg-amber px-4 py-3.5 font-semibold text-[#1a1209] hover:bg-amber-deep transition disabled:opacity-50"
+        >
+          Back to home
+        </button>
       </div>
     );
   }
@@ -158,9 +182,7 @@ export function StaffQuiz({
     <div className="flex flex-col">
       <div className="mb-4">
         <div className="flex items-center justify-between text-xs text-muted">
-          <span>
-            Question {idx + 1} of {quiz.length}
-          </span>
+          <span>Question {idx + 1} of {quiz.length}</span>
           <span className="rounded-full bg-surface-2 px-2 py-0.5 text-amber">
             {CATEGORY_LABEL[current.category]}
           </span>
