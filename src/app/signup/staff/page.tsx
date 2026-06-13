@@ -21,9 +21,17 @@ export default function StaffSignupPage() {
     const supabase = createClient();
 
     // 1. Create auth user
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
     if (signUpError) {
       setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!signUpData.session) {
+      setError(
+        "Email confirmation is enabled in Supabase. Go to Supabase → Authentication → Providers → Email and turn off 'Confirm email', then try again."
+      );
       setLoading(false);
       return;
     }

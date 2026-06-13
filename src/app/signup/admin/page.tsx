@@ -21,9 +21,20 @@ export default function AdminSignupPage() {
     const supabase = createClient();
 
     // 1. Create auth user
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
     if (signUpError) {
       setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    // If Supabase requires email confirmation the session will be null here,
+    // meaning auth.uid() is null and the RPC will fail. Direct the user to
+    // disable "Confirm email" in Supabase Auth settings for the POC.
+    if (!signUpData.session) {
+      setError(
+        "Email confirmation is enabled in Supabase. Go to Supabase → Authentication → Providers → Email and turn off 'Confirm email', then try again."
+      );
       setLoading(false);
       return;
     }
