@@ -31,3 +31,44 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Marketing page helpers ───────────────────────────────────── */
+
+/* Warm radial glow behind the hero */
+.mkt-hero-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(224, 146, 47, 0.18) 0%, transparent 70%),
+    radial-gradient(40% 40% at 85% 20%, rgba(127, 166, 80, 0.1) 0%, transparent 70%);
+}
+
+/* Subtle dotted grid texture */
+.mkt-grid {
+  background-image: radial-gradient(rgba(245, 237, 226, 0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Amber gradient text */
+.mkt-amber-text {
+  background: linear-gradient(135deg, #f0a94a 0%, #c9741a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Card with a faint top sheen */
+.mkt-card {
+  background:
+    linear-gradient(180deg, rgba(245, 237, 226, 0.03) 0%, transparent 40%),
+    var(--surface);
+}
+
+@keyframes mkt-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.mkt-float { animation: mkt-float 6s ease-in-out infinite; }
+.mkt-float-slow { animation: mkt-float 8s ease-in-out infinite; }
