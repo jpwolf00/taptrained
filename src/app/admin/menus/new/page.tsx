@@ -7,16 +7,6 @@ import type { MenuItem } from "@/lib/ai/types";
 
 type Step = "input" | "extracting" | "review" | "generating" | "done";
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-shuffle; // keep lint happy — used in quiz, not here
-
 export default function NewMenuPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("input");
@@ -27,6 +17,10 @@ export default function NewMenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  // Per-beer lookup state
+  const [lookingUp, setLookingUp] = useState<Set<number>>(new Set());
+  const [lookupUrls, setLookupUrls] = useState<string[]>([]);
+  const [lookupErrors, setLookupErrors] = useState<(string | null)[]>([]);
 
   async function handleFile(file: File) {
     setError(null);
@@ -103,6 +97,54 @@ export default function NewMenuPage() {
 
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index));
+    setLookupUrls((prev) => prev.filter((_, i) => i !== index));
+    setLookupErrors((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function setLookupUrl(index: number, url: string) {
+    setLookupUrls((prev) => {
+      const next = [...prev];
+      next[index] = url;
+      return next;
+    });
+  }
+
+  async function lookupBeer(index: number) {
+    const item = items[index];
+    if (!item?.name) return;
+    setLookingUp((prev) => new Set(prev).add(index));
+    setLookupErrors((prev) => { const n = [...prev]; n[index] = null; return n; });
+
+    const res = await fetch("/api/admin/lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        beerName: item.name,
+        url: lookupUrls[index] ?? "",
+      }),
+    });
+    const data = await res.json();
+
+    setLookingUp((prev) => { const n = new Set(prev); n.delete(index); return n; });
+
+    if (!res.ok) {
+      setLookupErrors((prev) => { const n = [...prev]; n[index] = data?.error ?? "Lookup failed."; return n; });
+      return;
+    }
+
+    // Merge returned fields — only overwrite if the looked-up value is non-null
+    setItems((prev) =>
+      prev.map((it, i) => {
+        if (i !== index) return it;
+        return {
+          ...it,
+          style: data.style ?? it.style,
+          abv: data.abv ?? it.abv,
+          description: data.description ?? it.description,
+          selling_points: data.selling_points ?? it.selling_points,
+        };
+      })
+    );
   }
 
   async function generate() {
@@ -235,59 +277,87 @@ export default function NewMenuPage() {
         <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold">{items.length} beers extracted</h2>
-            <p className="text-xs text-muted">Edit or remove anything that looks wrong.</p>
+            <p className="text-xs text-muted">Edit details or look up any beer.</p>
           </div>
 
           <div className="flex flex-col gap-3">
-            {items.map((item, i) => (
-              <div key={i} className="rounded-xl border border-border bg-surface p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 grid grid-cols-2 gap-2 text-sm">
-                    <div className="col-span-2">
-                      <label className="mb-0.5 block text-xs text-muted">Name</label>
-                      <input
-                        value={item.name}
-                        onChange={(e) => updateItem(i, "name", e.target.value)}
-                        className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
-                      />
+            {items.map((item, i) => {
+              const isLooking = lookingUp.has(i);
+              const lookupError = lookupErrors[i];
+              return (
+                <div key={i} className="rounded-xl border border-border bg-surface p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 grid grid-cols-2 gap-2 text-sm">
+                      {/* Name + lookup button */}
+                      <div className="col-span-2">
+                        <label className="mb-0.5 block text-xs text-muted">Name</label>
+                        <input
+                          value={item.name}
+                          onChange={(e) => updateItem(i, "name", e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-xs text-muted">Style</label>
+                        <input
+                          value={item.style}
+                          onChange={(e) => updateItem(i, "style", e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-xs text-muted">ABV %</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={item.abv ?? ""}
+                          onChange={(e) => updateItem(i, "abv", e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="mb-0.5 block text-xs text-muted">Description</label>
+                        <input
+                          value={item.description ?? ""}
+                          onChange={(e) => updateItem(i, "description", e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="mb-0.5 block text-xs text-muted">Style</label>
-                      <input
-                        value={item.style}
-                        onChange={(e) => updateItem(i, "style", e.target.value)}
-                        className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-xs text-muted">ABV %</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={item.abv ?? ""}
-                        onChange={(e) => updateItem(i, "abv", e.target.value)}
-                        className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="mb-0.5 block text-xs text-muted">Description</label>
-                      <input
-                        value={item.description ?? ""}
-                        onChange={(e) => updateItem(i, "description", e.target.value)}
-                        className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-sm outline-none focus:border-amber"
-                      />
-                    </div>
+                    <button
+                      onClick={() => removeItem(i)}
+                      className="mt-1 text-muted hover:text-red-400 transition text-lg leading-none"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removeItem(i)}
-                    className="mt-1 text-muted hover:text-red-400 transition text-lg leading-none"
-                    title="Remove"
-                  >
-                    ×
-                  </button>
+
+                  {/* Lookup row */}
+                  <div className="mt-3 border-t border-border pt-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        placeholder="Optional: paste a URL to the beer's page"
+                        value={lookupUrls[i] ?? ""}
+                        onChange={(e) => setLookupUrl(i, e.target.value)}
+                        className="flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs text-muted outline-none focus:border-amber focus:text-foreground placeholder:text-muted/50"
+                      />
+                      <button
+                        onClick={() => lookupBeer(i)}
+                        disabled={isLooking}
+                        className="shrink-0 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-amber hover:bg-border transition disabled:opacity-50"
+                      >
+                        {isLooking ? "Looking up…" : "Look up →"}
+                      </button>
+                    </div>
+                    {lookupError && (
+                      <p className="mt-1.5 text-xs text-red-400">{lookupError}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
