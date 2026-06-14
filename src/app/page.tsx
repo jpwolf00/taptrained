@@ -485,7 +485,7 @@ function FinalCTA() {
         </div>
         <p className="mt-4 text-sm text-muted">
           Already have an invite code?{" "}
-          <Link href="/signup/staff" className="text-amber underline">
+          <Link href="/join" className="text-amber underline">
             Join your team
           </Link>
         </p>

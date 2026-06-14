@@ -90,7 +90,7 @@ export default function LoginPage() {
       </p>
       <p className="mt-2 text-center text-sm text-muted">
         Have an invite code?{" "}
-        <Link href="/signup/staff" className="text-amber underline">
+        <Link href="/join" className="text-amber underline">
           Join your team
         </Link>
       </p>
