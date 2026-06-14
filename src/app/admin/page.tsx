@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { InviteShare } from "@/components/InviteShare";
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -7,6 +8,14 @@ export default async function AdminDashboard() {
     .from("menus")
     .select("id, title, status, published_at, created_at")
     .order("created_at", { ascending: false });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("venues(name, invite_code)")
+    .single();
+  const venue = Array.isArray(profile?.venues)
+    ? profile?.venues[0]
+    : profile?.venues;
 
   return (
     <div>
@@ -27,6 +36,12 @@ export default async function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {venue?.invite_code && (
+        <div className="mt-4">
+          <InviteShare code={venue.invite_code} venueName={venue.name} />
+        </div>
+      )}
 
       {!menus?.length ? (
         <div className="mt-12 text-center">
